@@ -1,14 +1,17 @@
 from enum import Enum 
 
 class MovementSource(Enum):  ## herencia of Enum class
+    ESTOP = "estop"
     TELEOP="teleop"
     HOLD = "hold"
 
 
 class Arbiter:
     
-    def decide(self,operator_connected : bool)-> MovementSource :
-        if operator_connected :
+    def decide(self,operator_connected : bool, estop_activated : bool )-> MovementSource :
+        if estop_activated    :
+            return  MovementSource.ESTOP
+        elif operator_connected :
             return MovementSource.TELEOP
         return MovementSource.HOLD
     
