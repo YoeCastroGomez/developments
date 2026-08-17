@@ -17,7 +17,7 @@ Backend de teleoperación remota para un robot **de dos brazos** (cada brazo es 
 4. El robot se modela como **dos instancias independientes** de `RobotPyBullet` (una por brazo, `"left"` y `"right"`, en posiciones distintas dentro del mismo mundo físico de PyBullet), cada una con sus propias articulaciones; cada instancia actualiza y devuelve su propio estado.
 5. El servidor responde al cliente por el mismo socket con el resultado (brazo + estado, error de formato, brazo desconocido, o mensaje de bloqueo por e-stop).
 
-`RobotFakeHand` (mock sin física, solo actualiza números en memoria) fue el robot original de la Fase 1 y sigue en el repo, pero ya no lo usa `remote_server.py`. `sim_test.py` es el script suelto que precedió a `robot_py_bullet_sim.py`, tampoco está conectado al servidor.
+`RobotFakeHand` (mock sin física, solo actualiza números en memoria) fue el robot original de la Fase 1 y sigue en el repo, pero ya no lo usa `remote_server.py`. `sim_test.py`, el script suelto que precedió a `robot_py_bullet_sim.py`, tampoco está conectado al servidor (ese sí, `robot_py_bullet_sim.py`, es el que usa el servidor hoy).
 
 ## Tecnologías usadas
 
@@ -33,13 +33,13 @@ No hay framework HTTP (Flask/FastAPI) ni base de datos; todo el estado vive en m
 
 | Archivo | Rol | Estado |
 |---|---|---|
-| [`remote_server.py`](remote_server.py) | Servidor WebSocket principal (`Server_Teleop`). Orquesta conexión, parsing de comandos (`arm_id,joint_id,position`), e-stop y llamadas al brazo correspondiente. Mantiene `self.robots = {"left": RobotPyBullet, "right": RobotPyBullet}`. | ✅ Funcional (PoC) |
-| [`arbiter.py`](arbiter.py) | `Arbiter` + `MovementSource`: decide si el movimiento se permite (ESTOP / TELEOP / HOLD) según el estado del operador y del e-stop. Decisión global de sesión, no por brazo. | ✅ Funcional, con script de prueba manual al final del propio archivo |
-| [`fake_robot_hand.py`](fake_robot_hand.py) | `RobotFakeHand`: mock de **una** mano/brazo robótico de 5 articulaciones (`joint_positions`), con un `name` (`"left"`/`"right"`) para identificarla en logs. Robot original de la Fase 1. | 🟡 Funcional como mock, pero ya no lo usa `remote_server.py` (reemplazado por `RobotPyBullet`) |
-| [`prove_client.py`](prove_client.py) | Cliente CLI de prueba: se conecta al servidor y permite mandar comandos a mano por consola (`arm_id,joint_id,position`), mide latencia. | ✅ Funcional (herramienta de prueba manual) |
-| [`robot_py_bullet_sim.py`](robot_py_bullet_sim.py) | `RobotPyBullet`: clase que envuelve la simulación en PyBullet de **un** brazo Kuka IIWA (setup de escena, conversión grados→radianes, mover una articulación). | ✅ Integrada con `remote_server.py`, dos instancias (una por brazo) comparten el mismo mundo físico |
-| [`sim_test.py`](sim_test.py) | Script suelto de prueba de PyBullet (versión no orientada a objetos de `robot_py_bullet_sim.py`, con loop de simulación). | 🟡 Script de prueba/duplicado, no forma parte del flujo del servidor |
-| [`relay/relay.py`](relay/relay.py) | `Relay`: servidor WebSocket que empareja operador y nodo del robot por `session_id` (protocolo `REGISTER,<role>,<session_id>`) y reenvía mensajes entre ambos sin interpretarlos. | 🟡 Funcional en local, falta desplegarlo en un VPS con IP pública y conectarlo al flujo de `remote_server.py` |
+| [`remote_server.py`](remote_server.py) | Servidor WebSocket principal (`Server_Teleop`). Orquesta conexión, parsing de comandos (`arm_id,joint_id,position`), e-stop y llamadas al brazo correspondiente. Mantiene `self.robots = {"left": RobotPyBullet, "right": RobotPyBullet}`. | Funcional (PoC) |
+| [`arbiter.py`](arbiter.py) | `Arbiter` + `MovementSource`: decide si el movimiento se permite (ESTOP / TELEOP / HOLD) según el estado del operador y del e-stop. Decisión global de sesión, no por brazo. | Funcional, con script de prueba manual al final del propio archivo |
+| [`fake_robot_hand.py`](fake_robot_hand.py) | `RobotFakeHand`: mock de **una** mano/brazo robótico de 5 articulaciones (`joint_positions`), con un `name` (`"left"`/`"right"`) para identificarla en logs. Robot original de la Fase 1. | Funcional como mock, pero ya no lo usa `remote_server.py` (reemplazado por `RobotPyBullet`) |
+| [`prove_client.py`](prove_client.py) | Cliente CLI de prueba: se conecta al servidor y permite mandar comandos a mano por consola (`arm_id,joint_id,position`), mide latencia. | Funcional (herramienta de prueba manual) |
+| [`robot_py_bullet_sim.py`](robot_py_bullet_sim.py) | `RobotPyBullet`: clase que envuelve la simulación en PyBullet de **un** brazo Kuka IIWA (setup de escena, conversión grados→radianes, mover una articulación). | Integrada con `remote_server.py`, dos instancias (una por brazo) comparten el mismo mundo físico |
+| [`sim_test.py`](sim_test.py) | Script suelto de prueba de PyBullet (versión no orientada a objetos de `robot_py_bullet_sim.py`, con loop de simulación). | Script de prueba/duplicado, no forma parte del flujo del servidor |
+| [`relay/relay.py`](relay/relay.py) | `Relay`: servidor WebSocket que empareja operador y nodo del robot por `session_id` (protocolo `REGISTER,<role>,<session_id>`) y reenvía mensajes entre ambos sin interpretarlos. | Funcional en local, falta desplegarlo en un VPS con IP pública y conectarlo al flujo de `remote_server.py` |
 
 ## Qué falta por construir
 
