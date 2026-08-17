@@ -1,18 +1,29 @@
+## Phase 2: client-server control channel (WebSocket server).
+## Also wires in Phase 3 (Arbiter) and Phase 4 (SafetyGate).
+
 import asyncio
 import websockets
-from fake_robot_hand import RobotFakeHand
+from robot_py_bullet_sim import RobotPyBullet
 import arbiter  ## new file added ,control the logs
+import safety_gate  ## Phase 4: range/speed clamp before moving the robot
+
+ARM_IDS = ("left", "right")  ## a robot has two arms -> two RobotPyBullet instances
+ARM_BASE_POSITIONS = {"left": (0, 0, 0), "right": (1, 0, 0)}  ## side by side, no overlap
+
 class Server_Teleop:
     def __init__(self) :
         self.arbiter = arbiter.Arbiter()
-        self.estop_activated    = False 
+        self.safety_gate = safety_gate.SafetyGate()
+        self.estop_activated    = False
         self.operator_connected = False
-        self.robot = RobotFakeHand()
-      
-    def process_robot(self,joint_id : int,position : int ):
-        self.robot.move_specific_position(joint_id,position)
-       
-         
+        ## one robot, two arms: an independent RobotPyBullet instance per arm,
+        ## sharing the same PyBullet physics world (see _ensure_connected)
+        self.robots = {arm_id: RobotPyBullet(arm_id, base_position=ARM_BASE_POSITIONS[arm_id]) for arm_id in ARM_IDS}
+
+    def process_robot(self,arm_id : str,joint_id : int,position : int ):
+        self.robots[arm_id].move_specific_position(joint_id,position)
+
+
     def reset_estop(self):
         """Desactivate the e-stop. Always may be an explicit human action."""
         self.estop_activated = False
@@ -35,26 +46,35 @@ class Server_Teleop:
                 self.estop_activated = self.check_hardware_estop_conditions(message)
                 await websocket.send("ESTOP activated")
             else:
-                
+
                 try:
                     message_converted = message.split(",")
-                    joint_id= int (message_converted[0])
-                    position = int (message_converted[1])
+                    arm_id = message_converted[0].strip()
+                    joint_id= int (message_converted[1])
+                    position = int (message_converted[2])
                     print(f"I received of client the next instructions: {message}")
-                    ## added Arbiter 
+                    if arm_id not in self.robots:
+                        await websocket.send(f"Unknown arm_id '{arm_id}'. Use one of {ARM_IDS}.")
+                        continue
+                    ## added Arbiter
                     source = self.arbiter.decide(self.operator_connected,self.estop_activated)
                     if source ==arbiter.MovementSource.ESTOP:
-                        await websocket.send("Movement blocked: ESTOP active. Send RESET to continue.") 
+                        await websocket.send("Movement blocked: ESTOP active. Send RESET to continue.")
                     elif source == arbiter.MovementSource.TELEOP:
-                        self.process_robot(joint_id,position)
-                        await websocket.send(f"data : {self.robot.get_state()}")
+                        current_position = self.robots[arm_id].get_state()[joint_id]
+                        allowed, reason = self.safety_gate.check(arm_id, joint_id, position, current_position)
+                        if not allowed:
+                            await websocket.send(f"Movement blocked by SafetyGate: {reason}.")
+                        else:
+                            self.process_robot(arm_id,joint_id,position)
+                            await websocket.send(f"data : {arm_id} -> {self.robots[arm_id].get_state()}")
                     else :
-                        await websocket.send(f"it doesn't allow movement.")   
-                        
+                        await websocket.send(f"it doesn't allow movement.")
+
                 except ValueError:
-                    await websocket.send(f"Use the format 'joint_id,position'. ") 
+                    await websocket.send(f"Use the format 'arm_id,joint_id,position' (arm_id in {ARM_IDS}). ")
                 except IndexError:
-                    await websocket.send(f"String is incompleted,there are insufficient data.")    
+                    await websocket.send(f"String is incompleted,there are insufficient data.")
         
         self.operator_connected = False
         

@@ -1,4 +1,6 @@
-from enum import Enum 
+## Phase 3: command arbitration (ESTOP / TELEOP / HOLD).
+
+from enum import Enum
 
 class MovementSource(Enum):  ## herencia of Enum class
     ESTOP = "estop"

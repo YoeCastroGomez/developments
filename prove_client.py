@@ -1,11 +1,13 @@
+## Phase 2: client-server control channel (interactive test client).
+
 import asyncio
 import websockets
-import time 
+import time
 
 async def conectar():
     async with websockets.connect("ws://localhost:8765") as websocket:
         while(True):
-          text = input("Write coordenates like '[joint_id,position]'")
+          text = input("Write coordenates like '[arm_id,joint_id,position]' (arm_id: left/right)")
           if(text=="0"): break 
           start_time = time.time() 
           await websocket.send(text)
