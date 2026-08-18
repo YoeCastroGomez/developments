@@ -73,7 +73,7 @@ Esto alimenta directo el filtro de seguridad (`SafetyGate`), que todavía está 
 
 ---
 
-## Resumen 
+## Resumen
 
 1. Aprobación para un VPS barato o gratis (relay).
 2. Acceso SSH a la máquina del robot (llave pública, usuario, IP, VPN si aplica).
